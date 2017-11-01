@@ -59,7 +59,6 @@ reset() ->
 %% @end
 %%--------------------------------------------------------------------
 init(N) ->
-    process_flag(trap_exit, true),
     {ok, #state{value = N, reset = N}}.
 
 %%--------------------------------------------------------------------
@@ -76,12 +75,11 @@ init(N) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(get_value, _From, Number) ->
-    {reply, Number#state.value, Number};
-
-handle_call(reset, _From, Number) ->
-    NewNumber = Number#state{value = Number#state.reset},
-    {reply, Number#state.value, NewNumber}.
+handle_call(get_value, _From, State = #state{value = Val}) ->
+    {reply, Val, State};
+handle_call(reset, _From, State = #state{reset = Res}) ->
+    NewState = State#state{value = Res},
+    {reply, NewState#state.value, NewState}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -90,16 +88,17 @@ handle_call(reset, _From, Number) ->
 %%
 %% @spec handle_cast(Msg, State) -> {noreply, State} |
 %%                                  {noreply, State, Timeout} |
-%%                                  {stop, Reason, State}
+%%                                  {stop, Reason, State
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({increment, N}, Number) ->
-    NewNumber = Number#state{value = Number#state.value + N},
-    {noreply, NewNumber};
-
-handle_cast({decrement, N}, Number) ->
-    NewNumber = Number#state{value = Number#state.value - N},
-    {noreply, NewNumber}.
+handle_cast({increment, N}, State = #state{value = Val}) ->
+    NewVal = Val + N,
+    NewState = State#state{value = NewVal},
+    {noreply, NewState};
+handle_cast({decrement, N}, State = #state{value = Val}) ->
+    NewVal = Val -N,
+    NewState = State#state{value = NewVal},
+    {noreply, NewState}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -111,9 +110,9 @@ handle_cast({decrement, N}, Number) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Msg, Number) ->
+handle_info(Msg, State) ->
     io:format("Unexpected message: ~p~n",[Msg]),
-    {noreply, Number}.
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -126,7 +125,8 @@ handle_info(Msg, Number) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
+terminate(Reason, _State) ->
+    io:format("Unexpected message: ~p~n",[Reason]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -143,3 +143,4 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
