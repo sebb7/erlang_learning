@@ -59,7 +59,15 @@ reset() ->
 %% @end
 %%--------------------------------------------------------------------
 init(N) ->
-    {ok, #state{value = N, reset = N}}.
+    process_flag(trap_exit, true),
+    {OldState, ResetValue} = counter_reserve:get_backup(),
+    if
+        OldState =:= undefined ->
+            State = #state{value = N, reset = N};
+        true ->
+            State = #state{value = OldState, reset = ResetValue}
+    end,
+    {ok, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -125,8 +133,8 @@ handle_info(Msg, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(Reason, _State) ->
-    io:format("Unexpected message: ~p~n",[Reason]),
+terminate(_Reason, State) ->
+    counter_reserve:save({State#state.value, State#state.reset}),
     ok.
 
 %%--------------------------------------------------------------------
