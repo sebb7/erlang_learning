@@ -13,14 +13,12 @@
 %% Supervisor callbacks
 -export([init/1]).
 
--define(SERVER, ?MODULE).
-
 %%====================================================================
 %% API functions
 %%====================================================================
 
 start_link(InitialValue) ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, InitialValue).
+    supervisor:start_link({local, ?MODULE}, ?MODULE, InitialValue).
 
 %%====================================================================
 %% Supervisor callbacks
@@ -28,21 +26,27 @@ start_link(InitialValue) ->
 
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init(InitialValue) ->
-    io:format("~p (~p) starting... ~n", [{local, ?SERVER}, self()]),
+    io:format("~p (~p) starting... ~n", [{local, ?MODULE}, self()]),
     RestartStrategy = one_for_one,
     MaxRestarts = 3,
     MaxSecondsBetween = 5,
     Flags = #{strategy => RestartStrategy, intensity => MaxRestarts,
               period => MaxSecondsBetween},
-    ChildId = counterId,
-    StartFunc = {counter_server, start_link, [InitialValue]},
+    ChildIdS = counterId,
+    ChildIdR = reserveId,
+    StartFuncServer = {counter_server, start_link, [InitialValue]},
+    StartFuncReserve = {counter_reserve, start_link, []},
     Restart =  permanent,
     Shutdown = infinity,
     Type = worker,
-    Module = [counter_server],
-    ChildSpecification = [#{id => ChildId, start => StartFunc,
+    ModuleServer = [counter_server],
+    ModuleReserve = [counter_reserve],
+    ChildSpecification = [#{id => ChildIdR, start => StartFuncReserve,
                             restart => Restart, shutdown => Shutdown,
-                            type => Type, modules => Module}],
+                            type => Type, modules => ModuleReserve},
+                          #{id => ChildIdS, start => StartFuncServer,
+                            restart => Restart, shutdown => Shutdown,
+                            type => Type, modules => ModuleServer}],
     {ok, {Flags, ChildSpecification}}.
 
 %%====================================================================
