@@ -7,11 +7,10 @@
    [kernel,
     stdlib
    ]},
-  {env,[]},
   {modules, []},
-
   {maintainers, []},
   {licenses, ["Apache 2.0"]},
-  {links, []}
+  {links, []},
+  {env, [{initial, 10}]}
  ]}.
 

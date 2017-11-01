@@ -15,7 +15,8 @@
 %%====================================================================
 
 start(_StartType, _StartArgs) ->
-    counter_sup:start_link(10).
+    {ok, InitialVal} = application:get_env(counter, initial),
+    counter_sup:start_link(InitialVal).
 
 %%--------------------------------------------------------------------
 stop(_State) ->
