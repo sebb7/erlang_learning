@@ -27,29 +27,24 @@ start_link(InitialValue) ->
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init(InitialValue) ->
     io:format("~p (~p) starting... ~n", [{local, ?MODULE}, self()]),
-    RestartStrategy = one_for_one,
-    MaxRestarts = 3,
-    MaxSecondsBetween = 5,
-    Flags = #{strategy => RestartStrategy, intensity => MaxRestarts,
-              period => MaxSecondsBetween},
-    ChildIdS = counterId,
-    ChildIdR = reserveId,
-    StartFuncServer = {counter_server, start_link, [InitialValue]},
-    StartFuncReserve = {counter_reserve, start_link, []},
-    Restart =  permanent,
-    Shutdown = infinity,
-    Type = worker,
-    ModuleServer = [counter_server],
-    ModuleReserve = [counter_reserve],
-    ChildSpecification = [#{id => ChildIdR, start => StartFuncReserve,
-                            restart => Restart, shutdown => Shutdown,
-                            type => Type, modules => ModuleReserve},
-                          #{id => ChildIdS, start => StartFuncServer,
-                            restart => Restart, shutdown => Shutdown,
-                            type => Type, modules => ModuleServer}],
+    Flags = #{strategy => one_for_one, intensity => 3, period => 5},
+    ChildSpecification = [get_reserve_spec(), get_counter_spec(InitialValue)],
     {ok, {Flags, ChildSpecification}}.
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+get_counter_spec(InitialValue) ->
+    get_child_spec(counterId, {counter_server, start_link, [InitialValue]},
+                   permanent, infinity, worker, [counter_server]).
+
+get_reserve_spec() ->
+    get_child_spec(reserveId, {counter_reserve, start_link, []},
+                   permanent, infinity, worker, [counter_reserve]).
+
+get_child_spec(Id, StartFunc, Restart, Shutdown, Type, Module) ->
+    #{id => Id, start => StartFunc,
+      restart => Restart, shutdown => Shutdown,
+      type => Type, modules => Module}.
 

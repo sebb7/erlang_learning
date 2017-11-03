@@ -28,14 +28,14 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(N) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, N, []).
+start_link(InitialValue) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, InitialValue, []).
 
-increment(N) ->
-    gen_server:cast(?MODULE, {increment, N}).
+increment(InitialValue) ->
+    gen_server:cast(?MODULE, {increment, InitialValue}).
 
-decrement(N) ->
-    gen_server:cast(?MODULE, {decrement, N}).
+decrement(InitialValue) ->
+    gen_server:cast(?MODULE, {decrement, InitialValue}).
 
 get_value() ->
     gen_server:call(?MODULE, get_value).
@@ -58,15 +58,10 @@ reset() ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init(N) ->
+init(InitialValue) ->
     process_flag(trap_exit, true),
-    {OldState, ResetValue} = counter_reserve:get_backup(),
-    if
-        OldState =:= undefined ->
-            State = #state{value = N, reset = N};
-        true ->
-            State = #state{value = OldState, reset = ResetValue}
-    end,
+    Backup = counter_reserve:get_backup(),
+    State = create_state(InitialValue, Backup),
     {ok, State}.
 
 %%--------------------------------------------------------------------
@@ -133,8 +128,8 @@ handle_info(Msg, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, State) ->
-    counter_reserve:save({State#state.value, State#state.reset}),
+terminate(_Reason, #state{value = Val, reset = Res}) ->
+    counter_reserve:save(Val, Res),
     ok.
 
 %%--------------------------------------------------------------------
@@ -151,4 +146,9 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+create_state(N, {undefined, _}) ->
+    #state{value = N, reset = N};
+create_state(_, {Value, Reset}) ->
+    #state{value = Value, reset = Reset}.
 

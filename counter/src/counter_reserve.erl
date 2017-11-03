@@ -8,7 +8,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, save/1, get_backup/0]).
+-export([start_link/0, save/2, get_backup/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -30,8 +30,8 @@
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-save(Backup) ->
-    gen_server:cast(?MODULE, {save, Backup}).
+save(Value, Reset) ->
+    gen_server:cast(?MODULE, {save, {Value, Reset}}).
 
 get_backup() ->
     gen_server:call(?MODULE, get_backup).
@@ -68,8 +68,8 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(get_backup, _From, State) ->
-    {reply, {State#state.value, State#state.reset}, State}.
+handle_call(get_backup, _From, State = #state{value = Val, reset = Res}) ->
+    {reply, {Val, Res}, State}.
 
 %%--------------------------------------------------------------------
 %% @private
