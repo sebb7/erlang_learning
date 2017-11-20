@@ -3,13 +3,12 @@
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
-
--module(counter_server).
+-module(counter_reserve).
 
 -behaviour(gen_server).
 
 %% API
--export([start_link/1, increment/1, decrement/1, get_value/0, reset/0]).
+-export([start_link/0, save/2, get_backup/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -28,20 +27,14 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(InitialValue) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, InitialValue, []).
+start_link() ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-increment(InitialValue) ->
-    gen_server:cast(?MODULE, {increment, InitialValue}).
+save(Value, Reset) ->
+    gen_server:cast(?MODULE, {save, {Value, Reset}}).
 
-decrement(InitialValue) ->
-    gen_server:cast(?MODULE, {decrement, InitialValue}).
-
-get_value() ->
-    gen_server:call(?MODULE, get_value).
-
-reset() ->
-    gen_server:call(?MODULE, reset).
+get_backup() ->
+    gen_server:call(?MODULE, get_backup).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -58,11 +51,8 @@ reset() ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init(InitialValue) ->
-    process_flag(trap_exit, true),
-    Backup = counter_reserve:get_backup(),
-    State = create_state(InitialValue, Backup),
-    {ok, State}.
+init([]) ->
+    {ok, #state{}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -78,11 +68,8 @@ init(InitialValue) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(get_value, _From, State = #state{value = Val}) ->
-    {reply, Val, State};
-handle_call(reset, _From, State = #state{reset = Res}) ->
-    NewState = State#state{value = Res},
-    {reply, NewState#state.value, NewState}.
+handle_call(get_backup, _From, State = #state{value = Val, reset = Res}) ->
+    {reply, {Val, Res}, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -91,16 +78,11 @@ handle_call(reset, _From, State = #state{reset = Res}) ->
 %%
 %% @spec handle_cast(Msg, State) -> {noreply, State} |
 %%                                  {noreply, State, Timeout} |
-%%                                  {stop, Reason, State
+%%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({increment, N}, State = #state{value = Val}) ->
-    NewVal = Val + N,
-    NewState = State#state{value = NewVal},
-    {noreply, NewState};
-handle_cast({decrement, N}, State = #state{value = Val}) ->
-    NewVal = Val -N,
-    NewState = State#state{value = NewVal},
+handle_cast({save, {Value, ResetValue}}, State) ->
+    NewState = State#state{value = Value, reset = ResetValue},
     {noreply, NewState}.
 
 %%--------------------------------------------------------------------
@@ -113,8 +95,7 @@ handle_cast({decrement, N}, State = #state{value = Val}) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Msg, State) ->
-    io:format("Unexpected message: ~p~n",[Msg]),
+handle_info(_Info, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -128,8 +109,7 @@ handle_info(Msg, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, #state{value = Val, reset = Res}) ->
-    counter_reserve:save(Val, Res),
+terminate(_Reason, _State) ->
     ok.
 
 %%--------------------------------------------------------------------
@@ -146,9 +126,3 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-create_state(N, {undefined, _}) ->
-    #state{value = N, reset = N};
-create_state(_, {Value, Reset}) ->
-    #state{value = Value, reset = Reset}.
-
